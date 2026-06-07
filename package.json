@@ -6,6 +6,9 @@
   "bin": {
     "dgb": "./bin/dgb.js"
   },
+  "scripts": {
+    "test": "node --test"
+  },
   "files": [
     "bin",
     "README.md",
