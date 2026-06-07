@@ -1,0 +1,30 @@
+{
+  "name": "dgb",
+  "version": "0.1.0",
+  "description": "CLI for Diego G Brisa packages.",
+  "type": "module",
+  "bin": {
+    "dgb": "./bin/dgb.js"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "cli",
+    "diegogbrisa"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DiegoGBrisa/dgb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DiegoGBrisa/dgb/issues"
+  },
+  "homepage": "https://github.com/DiegoGBrisa/dgb#readme",
+  "engines": {
+    "node": ">=20"
+  }
+}
