@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 
-const CLI = new URL('../bin/dgb.js', import.meta.url)
+const CLI = new URL('../dist/cli.js', import.meta.url)
 
 function createRepository({ version = '1.4.0', skill = '# ts-match skill\n' } = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'dgb-test-'))
@@ -111,4 +111,13 @@ test('fails clearly when ts-match is not installed', () => {
 
   assert.equal(error.status, 1)
   assert.match(error.stderr.toString(), /@diegogbrisa\/ts-match is not installed/)
+})
+
+test('rejects unsupported flags', () => {
+  const directory = createRepository()
+
+  const error = runDgbError(['ts-match', 'skill', 'install', '--unknown'], directory)
+
+  assert.equal(error.status, 1)
+  assert.match(error.stderr.toString(), /Unknown option: --unknown/)
 })

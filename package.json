@@ -3,14 +3,19 @@
   "version": "0.1.0",
   "description": "CLI for Diego G Brisa packages.",
   "type": "module",
+  "packageManager": "npm@11.9.0",
   "bin": {
-    "dgb": "./bin/dgb.js"
+    "dgb": "./dist/cli.js"
   },
   "scripts": {
-    "test": "node --test"
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "test": "npm run build && node --test",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test"
   },
   "files": [
-    "bin",
+    "dist",
     "README.md",
     "LICENSE"
   ],
@@ -29,5 +34,9 @@
   "homepage": "https://github.com/DiegoGBrisa/dgb#readme",
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.42",
+    "typescript": "^5.9.3"
   }
 }
