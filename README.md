@@ -28,7 +28,7 @@ Use `--force` with `install` or `update` to overwrite a locally edited skill.
 ## Development
 
 ```sh
-npm install
-npm test
-npm pack --dry-run
+pnpm install
+pnpm test
+pnpm pack:check
 ```
