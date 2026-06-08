@@ -207,7 +207,7 @@ it does not require an `NPM_TOKEN` secret.
 The GitHub release tag must match the package version:
 
 ```txt
-package.json version 0.1.0 -> release tag v0.1.0
+package.json version 0.2.0 -> release tag v0.2.0
 ```
 
 You can configure trusted publishing from npm's website. If using the npm CLI,
