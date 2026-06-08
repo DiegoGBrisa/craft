@@ -1,18 +1,21 @@
-# dgb
+# craft
 
-CLI for Diego G Brisa packages.
+Install version-matched agent skills from packages into repositories.
 
 ```sh
-npx dgb help
+pnpm dlx @diegogbrisa/craft help
 ```
 
 ## ts-match skill
 
 ```sh
-dgb ts-match skill install
-dgb ts-match skill update
-dgb ts-match skill status
+craft ts-match skill install
+craft ts-match skill update
+craft ts-match skill status
 ```
+
+The package is currently published-ready as `@diegogbrisa/craft` while the
+unscoped `craft` npm name is unavailable. The installed binary is still `craft`.
 
 The `ts-match` skill commands read the installed `@diegogbrisa/ts-match`
 package in the current repository and install the bundled `SKILL.md` for that

@@ -8,7 +8,7 @@ import test from 'node:test'
 const CLI = new URL('../dist/cli.js', import.meta.url)
 
 function createRepository({ version = '1.4.0', skill = '# ts-match skill\n' } = {}) {
-  const directory = mkdtempSync(join(tmpdir(), 'dgb-test-'))
+  const directory = mkdtempSync(join(tmpdir(), 'craft-test-'))
   const packageRoot = join(directory, 'node_modules', '@diegogbrisa', 'ts-match')
 
   mkdirSync(packageRoot, { recursive: true })
@@ -22,7 +22,7 @@ function createRepository({ version = '1.4.0', skill = '# ts-match skill\n' } = 
   return directory
 }
 
-function runDgb(args, cwd) {
+function runCraft(args, cwd) {
   return execFileSync(process.execPath, [CLI.pathname, ...args], {
     cwd,
     encoding: 'utf8',
@@ -30,14 +30,14 @@ function runDgb(args, cwd) {
   })
 }
 
-function runDgbError(args, cwd) {
+function runCraftError(args, cwd) {
   try {
-    runDgb(args, cwd)
+    runCraft(args, cwd)
   } catch (error) {
     return error
   }
 
-  throw new Error('Expected dgb command to fail')
+  throw new Error('Expected craft command to fail')
 }
 
 test('installs the ts-match skill from the installed package version', () => {
@@ -46,7 +46,7 @@ test('installs the ts-match skill from the installed package version', () => {
     skill: '# versioned skill\n',
   })
 
-  const output = runDgb(['ts-match', 'skill', 'install'], directory)
+  const output = runCraft(['ts-match', 'skill', 'install'], directory)
   const skill = readFileSync(join(directory, '.agents', 'skills', 'ts-match', 'SKILL.md'), 'utf8')
   const metadata = JSON.parse(
     readFileSync(join(directory, '.agents', 'skills', 'ts-match', 'metadata.json'), 'utf8'),
@@ -62,10 +62,10 @@ test('installs the ts-match skill from the installed package version', () => {
 test('refuses to overwrite a locally edited skill without --force', () => {
   const directory = createRepository()
 
-  runDgb(['ts-match', 'skill', 'install'], directory)
+  runCraft(['ts-match', 'skill', 'install'], directory)
   writeFileSync(join(directory, '.agents', 'skills', 'ts-match', 'SKILL.md'), '# local edit\n')
 
-  const error = runDgbError(['ts-match', 'skill', 'install'], directory)
+  const error = runCraftError(['ts-match', 'skill', 'install'], directory)
 
   assert.equal(error.status, 1)
   assert.match(error.stderr.toString(), /local changes/)
@@ -81,7 +81,7 @@ test('repairs metadata when an identical skill file already exists', () => {
   mkdirSync(skillDirectory, { recursive: true })
   writeFileSync(join(skillDirectory, 'SKILL.md'), '# versioned skill\n')
 
-  runDgb(['ts-match', 'skill', 'install'], directory)
+  runCraft(['ts-match', 'skill', 'install'], directory)
 
   const metadata = JSON.parse(readFileSync(join(skillDirectory, 'metadata.json'), 'utf8'))
 
@@ -94,9 +94,9 @@ test('overwrites a locally edited skill with --force', () => {
     skill: '# package skill\n',
   })
 
-  runDgb(['ts-match', 'skill', 'install'], directory)
+  runCraft(['ts-match', 'skill', 'install'], directory)
   writeFileSync(join(directory, '.agents', 'skills', 'ts-match', 'SKILL.md'), '# local edit\n')
-  runDgb(['ts-match', 'skill', 'install', '--force'], directory)
+  runCraft(['ts-match', 'skill', 'install', '--force'], directory)
 
   const skill = readFileSync(join(directory, '.agents', 'skills', 'ts-match', 'SKILL.md'), 'utf8')
 
@@ -104,10 +104,10 @@ test('overwrites a locally edited skill with --force', () => {
 })
 
 test('fails clearly when ts-match is not installed', () => {
-  const directory = mkdtempSync(join(tmpdir(), 'dgb-test-'))
+  const directory = mkdtempSync(join(tmpdir(), 'craft-test-'))
   writeFileSync(join(directory, 'package.json'), JSON.stringify({ type: 'module' }, null, 2))
 
-  const error = runDgbError(['ts-match', 'skill', 'install'], directory)
+  const error = runCraftError(['ts-match', 'skill', 'install'], directory)
 
   assert.equal(error.status, 1)
   assert.match(error.stderr.toString(), /@diegogbrisa\/ts-match is not installed/)
@@ -116,7 +116,7 @@ test('fails clearly when ts-match is not installed', () => {
 test('rejects unsupported flags', () => {
   const directory = createRepository()
 
-  const error = runDgbError(['ts-match', 'skill', 'install', '--unknown'], directory)
+  const error = runCraftError(['ts-match', 'skill', 'install', '--unknown'], directory)
 
   assert.equal(error.status, 1)
   assert.match(error.stderr.toString(), /Unknown option: --unknown/)

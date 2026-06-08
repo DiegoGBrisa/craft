@@ -1,11 +1,11 @@
 {
-  "name": "dgb",
+  "name": "@diegogbrisa/craft",
   "version": "0.1.0",
-  "description": "CLI for Diego G Brisa packages.",
+  "description": "Install version-matched agent skills from packages into repositories.",
   "type": "module",
   "packageManager": "pnpm@10.0.0",
   "bin": {
-    "dgb": "./dist/cli.js"
+    "craft": "./dist/cli.js"
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
@@ -20,19 +20,26 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
+    "agent",
+    "agents",
     "cli",
-    "diegogbrisa"
+    "codex",
+    "craft",
+    "skills"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DiegoGBrisa/dgb.git"
+    "url": "git+https://github.com/DiegoGBrisa/craft.git"
   },
   "bugs": {
-    "url": "https://github.com/DiegoGBrisa/dgb/issues"
+    "url": "https://github.com/DiegoGBrisa/craft/issues"
   },
-  "homepage": "https://github.com/DiegoGBrisa/dgb#readme",
+  "homepage": "https://github.com/DiegoGBrisa/craft#readme",
   "engines": {
     "node": ">=20"
   },

@@ -53,15 +53,15 @@ type WriteSkillFilesInput = {
 const [, , command, ...args] = process.argv
 
 function printHelp(): void {
-  console.log(`dgb
+  console.log(`craft
 
-CLI for Diego G Brisa packages.
+Install version-matched agent skills from packages into repositories.
 
 Usage:
-  dgb help
-  dgb ts-match skill install [--force]
-  dgb ts-match skill update [--force]
-  dgb ts-match skill status
+  craft help
+  craft ts-match skill install [--force]
+  craft ts-match skill update [--force]
+  craft ts-match skill status
 
 Commands:
   help                      Show this help text.
@@ -72,7 +72,7 @@ Commands:
 }
 
 function printError(message: string): void {
-  console.error(`dgb: ${message}`)
+  console.error(`craft: ${message}`)
 }
 
 function parseFlags(values: string[]): ParsedFlags {
@@ -167,7 +167,7 @@ function loadTsMatchPackage(repositoryRoot: string): TsMatchPackageInfo {
 
   if (!packageRoot) {
     throw new Error(
-      `${TS_MATCH_PACKAGE} is not installed in this repository. Install it first, then run dgb ts-match skill install.`,
+      `${TS_MATCH_PACKAGE} is not installed in this repository. Install it first, then run craft ts-match skill install.`,
     )
   }
 
@@ -237,7 +237,7 @@ function writeSkillFiles({ repositoryRoot, packageInfo, force, mode }: WriteSkil
 
     if (!force && existingHash !== packageInfo.skillHash && previousManagedHash !== existingHash) {
       throw new Error(
-        `${TS_MATCH_SKILL_DIR}/${TS_MATCH_FILE} has local changes or was not installed by dgb. Re-run with --force to overwrite it.`,
+        `${TS_MATCH_SKILL_DIR}/${TS_MATCH_FILE} has local changes or was not installed by craft. Re-run with --force to overwrite it.`,
       )
     }
   }
@@ -326,7 +326,7 @@ function main(): void {
     }
   }
 
-  throw new Error(`Unknown command: ${[command, ...args].join(' ')}. Run dgb help for usage.`)
+  throw new Error(`Unknown command: ${[command, ...args].join(' ')}. Run craft help for usage.`)
 }
 
 try {
