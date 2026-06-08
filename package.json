@@ -13,11 +13,15 @@
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "pnpm typecheck && pnpm build && vitest run",
     "pack:check": "node -e \"const fs = require('node:fs'); fs.rmSync('.pack', { recursive: true, force: true }); fs.mkdirSync('.pack', { recursive: true })\" && pnpm pack --pack-destination .pack",
+    "release:preflight": "pnpm test && pnpm pack:check && pnpm audit --prod",
+    "release:verify-tag": "tsx scripts/verify-release-tag.ts",
+    "release:verify-unpublished": "tsx scripts/verify-npm-version-unpublished.ts",
     "prepack": "pnpm build",
-    "prepublishOnly": "pnpm test"
+    "prepublishOnly": "pnpm release:preflight"
   },
   "files": [
     "dist",
+    "CHANGELOG.md",
     "README.md",
     "LICENSE"
   ],
@@ -35,7 +39,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DiegoGBrisa/craft.git"
+    "url": "https://github.com/DiegoGBrisa/craft"
   },
   "bugs": {
     "url": "https://github.com/DiegoGBrisa/craft/issues"
@@ -46,6 +50,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.42",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.8"
   }

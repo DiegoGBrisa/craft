@@ -1,0 +1,213 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      publish_tag:
+        description: Optional existing release tag to validate and publish to npm. Leave blank for normal release-please automation.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PNPM_VERSION: 10.0.0
+  NPM_PROVENANCE_REPOSITORY_URL: https://github.com/DiegoGBrisa/craft
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Create or update release PR
+        id: release
+        if: github.event_name != 'workflow_dispatch' || inputs.publish_tag == ''
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Skip release-please for manual publish recovery
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_tag != ''
+        run: echo "Manual publish recovery requested for ${{ inputs.publish_tag }}."
+
+  resolve-release:
+    name: Resolve release to publish
+    runs-on: ubuntu-latest
+    needs: release-please
+    if: always()
+    outputs:
+      should_publish: ${{ steps.resolve.outputs.should_publish }}
+      tag_name: ${{ steps.resolve.outputs.tag_name }}
+    steps:
+      - name: Resolve release tag
+        id: resolve
+        env:
+          MANUAL_PUBLISH_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_tag || '' }}
+          RELEASE_CREATED: ${{ needs.release-please.outputs.release_created }}
+          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          if [[ -n "${MANUAL_PUBLISH_TAG}" ]]; then
+            echo "should_publish=true" >> "${GITHUB_OUTPUT}"
+            echo "tag_name=${MANUAL_PUBLISH_TAG}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ "${RELEASE_CREATED}" == "true" ]]; then
+            echo "should_publish=true" >> "${GITHUB_OUTPUT}"
+            echo "tag_name=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "should_publish=false" >> "${GITHUB_OUTPUT}"
+          echo "tag_name=" >> "${GITHUB_OUTPUT}"
+
+  validate:
+    name: Validate release / Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    needs: resolve-release
+    if: needs.resolve-release.outputs.should_publish == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22, 24]
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-release.outputs.tag_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify release tag matches package version
+        run: pnpm release:verify-tag -- "${{ needs.resolve-release.outputs.tag_name }}"
+
+      - name: Verify npm version is unpublished
+        run: pnpm release:verify-unpublished
+
+      - name: Run release preflight
+        run: pnpm release:preflight
+
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-release
+      - validate
+    if: needs.resolve-release.outputs.should_publish == 'true'
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-release.outputs.tag_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Verify Trusted Publishing runtime
+        run: |
+          node --version
+          npm_version=$(npm --version)
+          printf 'npm %s\n' "${npm_version}"
+          NPM_VERSION="${npm_version}" node --input-type=module <<'NODE'
+          const [major = 0, minor = 0, patch = 0] = (process.env.NPM_VERSION ?? '').split('.').map(Number)
+          const supported = major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)))
+          if (!supported) {
+            throw new Error(`Trusted Publishing requires npm >= 11.5.1, received ${major}.${minor}.${patch}.`)
+          }
+          NODE
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify release tag matches package version
+        run: pnpm release:verify-tag -- "${{ needs.resolve-release.outputs.tag_name }}"
+
+      - name: Verify npm version is unpublished
+        run: pnpm release:verify-unpublished
+
+      - name: Build and validate publish tarball
+        run: pnpm pack:check
+
+      - name: Resolve publish tarball
+        id: publish-tarball
+        run: |
+          tarball_count=$(find .pack -maxdepth 1 -type f -name "*.tgz" | wc -l | tr -d ' ')
+          if [ "${tarball_count}" -ne 1 ]; then
+            printf 'Expected exactly one packed tarball, found %s.\n' "${tarball_count}" >&2
+            exit 1
+          fi
+          tarball=$(find .pack -maxdepth 1 -type f -name "*.tgz" | sort | sed -n '1p')
+          echo "path=${tarball}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify tarball provenance metadata
+        env:
+          PUBLISH_TARBALL: ${{ steps.publish-tarball.outputs.path }}
+        run: |
+          tar -xOf "${PUBLISH_TARBALL}" package/package.json > /tmp/craft-package.json
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs'
+
+          const expectedRepositoryUrl = process.env.NPM_PROVENANCE_REPOSITORY_URL
+          if (!expectedRepositoryUrl) throw new Error('NPM_PROVENANCE_REPOSITORY_URL is required.')
+
+          const packageJson = JSON.parse(readFileSync('/tmp/craft-package.json', 'utf8'))
+          if (typeof packageJson !== 'object' || packageJson === null || Array.isArray(packageJson)) {
+            throw new Error('Packed package.json must contain an object.')
+          }
+
+          const repository = packageJson.repository
+          if (typeof repository !== 'object' || repository === null || Array.isArray(repository)) {
+            throw new Error('Packed package.json repository must be an object with type and url fields.')
+          }
+
+          if (repository.url !== expectedRepositoryUrl) {
+            throw new Error(`Packed package.json repository.url is ${repository.url ?? 'missing'}, expected ${expectedRepositoryUrl}.`)
+          }
+
+          console.log(`packed package.json repository.url matches ${expectedRepositoryUrl}`)
+          NODE
+
+      - name: Publish tarball with provenance
+        env:
+          PUBLISH_TARBALL: ${{ steps.publish-tarball.outputs.path }}
+        run: npm publish "${PUBLISH_TARBALL}" --ignore-scripts --provenance --access public

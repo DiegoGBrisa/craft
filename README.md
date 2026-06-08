@@ -147,20 +147,57 @@ contains the intended runtime files:
 
 ```txt
 dist/cli.js
+CHANGELOG.md
 LICENSE
 package.json
 README.md
 ```
 
+## Version Bumps and Releases
+
+Craft uses the same release model as `ts-match`: release-please owns package
+version bumps and changelog updates.
+
+Do not edit `package.json` versions by hand for normal releases. Use
+conventional commits on `main` instead:
+
+- `feat: ...` creates a minor release.
+- `fix: ...` creates a patch release.
+- breaking changes create a major release.
+- `docs:`, `test:`, `chore:`, and similar commits do not create a release
+  unless they include a breaking change.
+
+On pushes to `main`, release-please opens or updates a release PR. That PR owns:
+
+```txt
+package.json
+pnpm-lock.yaml
+CHANGELOG.md
+.release-please-manifest.json
+```
+
+Merging the release PR creates the matching GitHub release tag, such as
+`v0.2.0`, and the same workflow validates and publishes that tag to npm.
+
+For local release validation after release-please has bumped to a new version,
+run:
+
+```sh
+pnpm release:preflight
+pnpm release:verify-tag -- v0.2.0
+pnpm release:verify-unpublished
+```
+
 ## Publishing
 
-The package publishes from GitHub Actions when a GitHub release is published.
-Configure npm trusted publishing for:
+Publishing is handled by `.github/workflows/release-please.yml`. Configure npm
+trusted publishing for:
 
 ```txt
 Package: @diegogbrisa/craft
 Repository: DiegoGBrisa/craft
-Workflow filename: publish.yml
+Workflow filename: release-please.yml
+Environment: npm
 Allowed action: npm publish
 ```
 
@@ -174,8 +211,11 @@ package.json version 0.1.0 -> release tag v0.1.0
 ```
 
 You can configure trusted publishing from npm's website. If using the npm CLI,
-use a version that includes the `trust` command; npm 11.9.0 does not.
+use npm `11.10.0` or newer and configure the GitHub workflow:
 
 ```sh
-npx npm@latest trust github @diegogbrisa/craft --repo DiegoGBrisa/craft --file publish.yml --allow-publish
+npx npm@^11.10.0 trust github @diegogbrisa/craft --repo DiegoGBrisa/craft --file release-please.yml --environment npm --allow-publish
 ```
+
+The npm CLI requires the package to already exist on the registry before
+creating the trusted publishing relationship.

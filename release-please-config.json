@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "c316fb1df224abd8a1a2994800a191ccecaa7ba4",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "@diegogbrisa/craft",
+      "changelog-path": "CHANGELOG.md",
+      "include-v-in-tag": true,
+      "include-component-in-tag": false,
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "Features"
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes"
+        }
+      ]
+    }
+  }
+}
