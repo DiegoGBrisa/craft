@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import test from 'node:test'
+import { expect, test } from 'vitest'
 
 const CLI = new URL('../dist/cli.js', import.meta.url)
 
@@ -52,11 +51,11 @@ test('installs the ts-match skill from the installed package version', () => {
     readFileSync(join(directory, '.agents', 'skills', 'ts-match', 'metadata.json'), 'utf8'),
   )
 
-  assert.match(output, /Installed ts-match skill/)
-  assert.equal(skill, '# versioned skill\n')
-  assert.equal(metadata.package, '@diegogbrisa/ts-match')
-  assert.equal(metadata.version, '1.5.0')
-  assert.equal(metadata.source, 'installed-package')
+  expect(output).toMatch(/Installed ts-match skill/)
+  expect(skill).toBe('# versioned skill\n')
+  expect(metadata.package).toBe('@diegogbrisa/ts-match')
+  expect(metadata.version).toBe('1.5.0')
+  expect(metadata.source).toBe('installed-package')
 })
 
 test('refuses to overwrite a locally edited skill without --force', () => {
@@ -67,8 +66,8 @@ test('refuses to overwrite a locally edited skill without --force', () => {
 
   const error = runCraftError(['ts-match', 'skill', 'install'], directory)
 
-  assert.equal(error.status, 1)
-  assert.match(error.stderr.toString(), /local changes/)
+  expect(error.status).toBe(1)
+  expect(error.stderr.toString()).toMatch(/local changes/)
 })
 
 test('repairs metadata when an identical skill file already exists', () => {
@@ -85,8 +84,8 @@ test('repairs metadata when an identical skill file already exists', () => {
 
   const metadata = JSON.parse(readFileSync(join(skillDirectory, 'metadata.json'), 'utf8'))
 
-  assert.equal(metadata.package, '@diegogbrisa/ts-match')
-  assert.equal(metadata.version, '1.5.0')
+  expect(metadata.package).toBe('@diegogbrisa/ts-match')
+  expect(metadata.version).toBe('1.5.0')
 })
 
 test('overwrites a locally edited skill with --force', () => {
@@ -100,7 +99,7 @@ test('overwrites a locally edited skill with --force', () => {
 
   const skill = readFileSync(join(directory, '.agents', 'skills', 'ts-match', 'SKILL.md'), 'utf8')
 
-  assert.equal(skill, '# package skill\n')
+  expect(skill).toBe('# package skill\n')
 })
 
 test('fails clearly when ts-match is not installed', () => {
@@ -109,8 +108,8 @@ test('fails clearly when ts-match is not installed', () => {
 
   const error = runCraftError(['ts-match', 'skill', 'install'], directory)
 
-  assert.equal(error.status, 1)
-  assert.match(error.stderr.toString(), /@diegogbrisa\/ts-match is not installed/)
+  expect(error.status).toBe(1)
+  expect(error.stderr.toString()).toMatch(/@diegogbrisa\/ts-match is not installed/)
 })
 
 test('rejects unsupported flags', () => {
@@ -118,6 +117,6 @@ test('rejects unsupported flags', () => {
 
   const error = runCraftError(['ts-match', 'skill', 'install', '--unknown'], directory)
 
-  assert.equal(error.status, 1)
-  assert.match(error.stderr.toString(), /Unknown option: --unknown/)
+  expect(error.status).toBe(1)
+  expect(error.stderr.toString()).toMatch(/Unknown option: --unknown/)
 })

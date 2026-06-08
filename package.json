@@ -10,7 +10,7 @@
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "pnpm clean && tsc -p tsconfig.json",
-    "test": "pnpm build && node --test",
+    "test": "pnpm build && vitest run",
     "pack:check": "node -e \"const fs = require('node:fs'); fs.rmSync('.pack', { recursive: true, force: true }); fs.mkdirSync('.pack', { recursive: true })\" && pnpm pack --pack-destination .pack",
     "prepack": "pnpm build",
     "prepublishOnly": "pnpm test"
@@ -45,6 +45,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.42",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.8"
   }
 }
