@@ -57,8 +57,9 @@ The GitHub release tag must match the package version:
 package.json version 0.1.0 -> release tag v0.1.0
 ```
 
-You can configure trusted publishing from npm's website, or with npm CLI:
+You can configure trusted publishing from npm's website. If using the npm CLI,
+use a version that includes the `trust` command; npm 11.9.0 does not.
 
 ```sh
-npm trust github @diegogbrisa/craft --repo DiegoGBrisa/craft --file publish.yml --allow-publish
+npx npm@latest trust github @diegogbrisa/craft --repo DiegoGBrisa/craft --file publish.yml --allow-publish
 ```
