@@ -137,6 +137,11 @@ craft upgrade --npm
 `craft upgrade` detects the package manager when it can. Otherwise it prefers
 `pnpm` if available and falls back to `npm`.
 
+During a real upgrade, Craft checks the latest published version first. If the
+installed version is already current, it prints that no upgrade was performed.
+If an upgrade is available, it prints the previous version and the version it is
+upgrading to.
+
 ## Development
 
 ```sh

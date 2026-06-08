@@ -1,13 +1,14 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { expect, test } from 'vitest'
 
 const CLI = new URL('../dist/cli.js', import.meta.url)
 const PACKAGE_JSON = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
   version?: string
 }
+const NEXT_MINOR_VERSION = nextMinorVersion(PACKAGE_JSON.version)
 
 type CreateRepositoryOptions = {
   version?: string
@@ -25,6 +26,24 @@ type CraftCommandError = Error & {
   stderr?: Buffer | string
 }
 
+type RunCraftOptions = {
+  env?: NodeJS.ProcessEnv
+}
+
+function nextMinorVersion(version: string | undefined): string {
+  if (version === undefined) throw new Error('package.json must include a version for tests.')
+
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version)
+  const major = match?.[1]
+  const minor = match?.[2]
+
+  if (major === undefined || minor === undefined) {
+    throw new Error(`Expected a semver package version, received ${version}.`)
+  }
+
+  return `${major}.${Number(minor) + 1}.0`
+}
+
 function createRepository({ version = '1.4.0', skill = '# ts-match skill\n' }: CreateRepositoryOptions = {}): string {
   const directory = mkdtempSync(join(tmpdir(), 'craft-test-'))
   const packageRoot = join(directory, 'node_modules', '@diegogbrisa', 'ts-match')
@@ -40,10 +59,52 @@ function createRepository({ version = '1.4.0', skill = '# ts-match skill\n' }: C
   return directory
 }
 
-function runCraft(args: string[], cwd: string): string {
+function createFakePackageManager(name: 'npm' | 'pnpm', latestVersion: string): NodeJS.ProcessEnv {
+  const binDirectory = mkdtempSync(join(tmpdir(), 'craft-bin-'))
+  const commandPath = join(binDirectory, name)
+
+  writeFileSync(
+    commandPath,
+    `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  echo "10.0.0"
+  exit 0
+fi
+
+if [ "$1" = "view" ] && [ "$2" = "@diegogbrisa/craft" ] && [ "$3" = "version" ]; then
+  echo "${latestVersion}"
+  exit 0
+fi
+
+if [ "$1" = "add" ] && [ "$2" = "-g" ] && [ "$3" = "@diegogbrisa/craft@latest" ]; then
+  echo "installed @diegogbrisa/craft@latest"
+  exit 0
+fi
+
+if [ "$1" = "install" ] && [ "$2" = "-g" ] && [ "$3" = "@diegogbrisa/craft@latest" ]; then
+  echo "installed @diegogbrisa/craft@latest"
+  exit 0
+fi
+
+echo "unexpected ${name} command: $*" >&2
+exit 1
+`,
+  )
+  chmodSync(commandPath, 0o755)
+
+  return {
+    PATH: `${binDirectory}${delimiter}${process.env.PATH ?? ''}`,
+  }
+}
+
+function runCraft(args: string[], cwd: string, options: RunCraftOptions = {}): string {
   return execFileSync(process.execPath, [CLI.pathname, ...args], {
     cwd,
     encoding: 'utf8',
+    env: {
+      ...process.env,
+      ...options.env,
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
@@ -165,6 +226,7 @@ test('shows the self-upgrade command without running it', () => {
 
   const output = runCraft(['upgrade', '--dry-run'], directory)
 
+  expect(output).toContain(`Current craft version: ${PACKAGE_JSON.version}`)
   expect(output).toMatch(/Would run:/)
   expect(output).toMatch(/@diegogbrisa\/craft@latest/)
   expect(output).toMatch(/(?:pnpm add -g|npm install -g)/)
@@ -184,6 +246,39 @@ test('supports forcing npm for self-upgrade', () => {
   const output = runCraft(['upgrade', '--dry-run', '--npm'], directory)
 
   expect(output).toContain('npm install -g @diegogbrisa/craft@latest')
+})
+
+test('reports previous and upgraded versions during self-upgrade', () => {
+  const directory = createRepository()
+  const output = runCraft(['upgrade', '--pnpm'], directory, {
+    env: createFakePackageManager('pnpm', NEXT_MINOR_VERSION),
+  })
+
+  expect(output).toContain(`Upgrading craft from ${PACKAGE_JSON.version} to ${NEXT_MINOR_VERSION}.`)
+  expect(output).toContain('Running:\npnpm add -g @diegogbrisa/craft@latest')
+  expect(output).toContain(`craft upgraded from ${PACKAGE_JSON.version} to ${NEXT_MINOR_VERSION}.`)
+})
+
+test('reports when self-upgrade has nothing to install', () => {
+  const directory = createRepository()
+  const output = runCraft(['upgrade', '--pnpm'], directory, {
+    env: createFakePackageManager('pnpm', PACKAGE_JSON.version ?? ''),
+  })
+
+  expect(output).toContain(`craft is already up to date (${PACKAGE_JSON.version}).`)
+  expect(output).toContain('No upgrade performed.')
+  expect(output).not.toContain('Running:')
+})
+
+test('does not downgrade when the installed version is newer than latest', () => {
+  const directory = createRepository()
+  const output = runCraft(['upgrade', '--pnpm'], directory, {
+    env: createFakePackageManager('pnpm', '0.1.0'),
+  })
+
+  expect(output).toContain(`craft is newer than the latest published version (current ${PACKAGE_JSON.version}, latest 0.1.0).`)
+  expect(output).toContain('No upgrade performed.')
+  expect(output).not.toContain('Running:')
 })
 
 test('rejects conflicting self-upgrade package manager flags', () => {

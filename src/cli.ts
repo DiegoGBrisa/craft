@@ -57,6 +57,8 @@ type UpgradeOptions = {
   packageManager?: PackageManager
 }
 
+type ParsedVersion = readonly [major: number, minor: number, patch: number]
+
 const [, , command, ...args] = process.argv
 
 function printHelp(): void {
@@ -84,13 +86,17 @@ Commands:
 }
 
 function printVersion(): void {
+  console.log(getCraftVersion())
+}
+
+function getCraftVersion(): string {
   const packageJson = createRequire(import.meta.url)('../package.json') as PackageJson
 
   if (typeof packageJson.version !== 'string' || packageJson.version.length === 0) {
     throw new Error(`${CRAFT_PACKAGE} package.json does not include a valid version.`)
   }
 
-  console.log(packageJson.version)
+  return packageJson.version
 }
 
 function printError(message: string): void {
@@ -193,6 +199,63 @@ function getUpgradeCommand(packageManager: PackageManager): [string, string[]] {
   return ['npm', ['install', '-g', `${CRAFT_PACKAGE}@latest`]]
 }
 
+function getLatestVersionCommand(packageManager: PackageManager): [string, string[]] {
+  return [packageManager, ['view', CRAFT_PACKAGE, 'version']]
+}
+
+function getLatestCraftVersion(packageManager: PackageManager): string {
+  const [commandName, commandArgs] = getLatestVersionCommand(packageManager)
+
+  let output: string
+
+  try {
+    output = execFileSync(commandName, commandArgs, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+  } catch {
+    throw new Error(`Could not check the latest ${CRAFT_PACKAGE} version with ${packageManager}.`)
+  }
+
+  if (output.length === 0) {
+    throw new Error(`${packageManager} did not return a latest ${CRAFT_PACKAGE} version.`)
+  }
+
+  return output
+}
+
+function parseVersion(version: string): ParsedVersion {
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(version)
+  const major = match?.[1]
+  const minor = match?.[2]
+  const patch = match?.[3]
+
+  if (major === undefined || minor === undefined || patch === undefined) {
+    throw new Error(`Could not compare invalid craft version: ${version}`)
+  }
+
+  return [Number(major), Number(minor), Number(patch)]
+}
+
+function compareVersions(left: string, right: string): -1 | 0 | 1 {
+  const leftVersion = parseVersion(left)
+  const rightVersion = parseVersion(right)
+
+  for (let index = 0; index < leftVersion.length; index += 1) {
+    const leftPart = leftVersion[index]
+    const rightPart = rightVersion[index]
+
+    if (leftPart === undefined || rightPart === undefined) {
+      throw new Error(`Could not compare craft versions: ${left} and ${right}`)
+    }
+
+    if (leftPart < rightPart) return -1
+    if (leftPart > rightPart) return 1
+  }
+
+  return 0
+}
+
 function parseUpgradeOptions(values: string[]): UpgradeOptions {
   const { flags, positional } = parseFlags(values)
 
@@ -226,15 +289,33 @@ function upgradeCraft(values: string[]): void {
   const packageManager = detectPackageManager(options.packageManager, options.dryRun)
   const [commandName, commandArgs] = getUpgradeCommand(packageManager)
   const commandText = [commandName, ...commandArgs].join(' ')
+  const currentVersion = getCraftVersion()
 
   if (options.dryRun) {
+    console.log(`Current craft version: ${currentVersion}`)
     console.log(`Would run:\n${commandText}`)
     return
   }
 
+  const latestVersion = getLatestCraftVersion(packageManager)
+  const versionComparison = compareVersions(currentVersion, latestVersion)
+
+  if (versionComparison === 0) {
+    console.log(`craft is already up to date (${currentVersion}).`)
+    console.log('No upgrade performed.')
+    return
+  }
+
+  if (versionComparison > 0) {
+    console.log(`craft is newer than the latest published version (current ${currentVersion}, latest ${latestVersion}).`)
+    console.log('No upgrade performed.')
+    return
+  }
+
+  console.log(`Upgrading craft from ${currentVersion} to ${latestVersion}.`)
   console.log(`Running:\n${commandText}`)
   execFileSync(commandName, commandArgs, { stdio: 'inherit' })
-  console.log('craft upgrade complete.')
+  console.log(`craft upgraded from ${currentVersion} to ${latestVersion}.`)
 }
 
 function getRepositoryRoot(cwd: string): string {
