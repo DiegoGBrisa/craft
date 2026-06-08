@@ -6,7 +6,23 @@ import { expect, test } from 'vitest'
 
 const CLI = new URL('../dist/cli.js', import.meta.url)
 
-function createRepository({ version = '1.4.0', skill = '# ts-match skill\n' } = {}) {
+type CreateRepositoryOptions = {
+  version?: string
+  skill?: string
+}
+
+type SkillMetadata = {
+  package?: string
+  version?: string
+  source?: string
+}
+
+type CraftCommandError = Error & {
+  status?: number | null
+  stderr?: Buffer | string
+}
+
+function createRepository({ version = '1.4.0', skill = '# ts-match skill\n' }: CreateRepositoryOptions = {}): string {
   const directory = mkdtempSync(join(tmpdir(), 'craft-test-'))
   const packageRoot = join(directory, 'node_modules', '@diegogbrisa', 'ts-match')
 
@@ -21,7 +37,7 @@ function createRepository({ version = '1.4.0', skill = '# ts-match skill\n' } = 
   return directory
 }
 
-function runCraft(args, cwd) {
+function runCraft(args: string[], cwd: string): string {
   return execFileSync(process.execPath, [CLI.pathname, ...args], {
     cwd,
     encoding: 'utf8',
@@ -29,11 +45,15 @@ function runCraft(args, cwd) {
   })
 }
 
-function runCraftError(args, cwd) {
+function runCraftError(args: string[], cwd: string): CraftCommandError {
   try {
     runCraft(args, cwd)
   } catch (error) {
-    return error
+    if (error instanceof Error) {
+      return error as CraftCommandError
+    }
+
+    throw error
   }
 
   throw new Error('Expected craft command to fail')
@@ -49,7 +69,7 @@ test('installs the ts-match skill from the installed package version', () => {
   const skill = readFileSync(join(directory, '.agents', 'skills', 'ts-match', 'SKILL.md'), 'utf8')
   const metadata = JSON.parse(
     readFileSync(join(directory, '.agents', 'skills', 'ts-match', 'metadata.json'), 'utf8'),
-  )
+  ) as SkillMetadata
 
   expect(output).toMatch(/Installed ts-match skill/)
   expect(skill).toBe('# versioned skill\n')
@@ -67,7 +87,7 @@ test('refuses to overwrite a locally edited skill without --force', () => {
   const error = runCraftError(['ts-match', 'skill', 'install'], directory)
 
   expect(error.status).toBe(1)
-  expect(error.stderr.toString()).toMatch(/local changes/)
+  expect(String(error.stderr)).toMatch(/local changes/)
 })
 
 test('repairs metadata when an identical skill file already exists', () => {
@@ -82,7 +102,7 @@ test('repairs metadata when an identical skill file already exists', () => {
 
   runCraft(['ts-match', 'skill', 'install'], directory)
 
-  const metadata = JSON.parse(readFileSync(join(skillDirectory, 'metadata.json'), 'utf8'))
+  const metadata = JSON.parse(readFileSync(join(skillDirectory, 'metadata.json'), 'utf8')) as SkillMetadata
 
   expect(metadata.package).toBe('@diegogbrisa/ts-match')
   expect(metadata.version).toBe('1.5.0')
@@ -109,7 +129,7 @@ test('fails clearly when ts-match is not installed', () => {
   const error = runCraftError(['ts-match', 'skill', 'install'], directory)
 
   expect(error.status).toBe(1)
-  expect(error.stderr.toString()).toMatch(/@diegogbrisa\/ts-match is not installed/)
+  expect(String(error.stderr)).toMatch(/@diegogbrisa\/ts-match is not installed/)
 })
 
 test('rejects unsupported flags', () => {
@@ -118,5 +138,5 @@ test('rejects unsupported flags', () => {
   const error = runCraftError(['ts-match', 'skill', 'install', '--unknown'], directory)
 
   expect(error.status).toBe(1)
-  expect(error.stderr.toString()).toMatch(/Unknown option: --unknown/)
+  expect(String(error.stderr)).toMatch(/Unknown option: --unknown/)
 })
