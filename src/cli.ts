@@ -146,9 +146,9 @@ function inferPackageManagerFromUserAgent(): PackageManager | null {
   return null
 }
 
-function detectPackageManager(preferredPackageManager: PackageManager | undefined): PackageManager {
+function detectPackageManager(preferredPackageManager: PackageManager | undefined, dryRun: boolean): PackageManager {
   if (preferredPackageManager) {
-    if (!commandExists(preferredPackageManager)) {
+    if (!dryRun && !commandExists(preferredPackageManager)) {
       throw new Error(`${preferredPackageManager} was requested, but it was not found on PATH.`)
     }
 
@@ -210,7 +210,7 @@ function parseUpgradeOptions(values: string[]): UpgradeOptions {
 
 function upgradeCraft(values: string[]): void {
   const options = parseUpgradeOptions(values)
-  const packageManager = detectPackageManager(options.packageManager)
+  const packageManager = detectPackageManager(options.packageManager, options.dryRun)
   const [commandName, commandArgs] = getUpgradeCommand(packageManager)
   const commandText = [commandName, ...commandArgs].join(' ')
 
