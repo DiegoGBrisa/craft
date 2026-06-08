@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/DiegoGBrisa/craft/compare/v0.3.0...v0.4.0) (2026-06-08)
+
+
+### Features
+
+* report craft upgrade versions ([6839cf4](https://github.com/DiegoGBrisa/craft/commit/6839cf498c65a43d5201a13ec065789ae833243f))
+
 ## [0.3.0](https://github.com/DiegoGBrisa/craft/compare/v0.2.0...v0.3.0) (2026-06-08)
 
 
