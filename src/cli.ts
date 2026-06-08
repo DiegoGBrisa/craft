@@ -66,6 +66,8 @@ Install version-matched agent skills from packages into repositories.
 
 Usage:
   craft help
+  craft --version
+  craft -v
   craft upgrade [--dry-run] [--npm|--pnpm]
   craft ts-match skill install [--force]
   craft ts-match skill update [--force]
@@ -73,11 +75,22 @@ Usage:
 
 Commands:
   help                      Show this help text.
+  --version, -v             Show the installed craft version.
   upgrade                   Update craft to the latest published version.
   ts-match skill install    Install the ts-match agent skill for the installed package version.
   ts-match skill update     Update the ts-match agent skill for the installed package version.
   ts-match skill status     Show the installed ts-match skill version.
 `)
+}
+
+function printVersion(): void {
+  const packageJson = createRequire(import.meta.url)('../package.json') as PackageJson
+
+  if (typeof packageJson.version !== 'string' || packageJson.version.length === 0) {
+    throw new Error(`${CRAFT_PACKAGE} package.json does not include a valid version.`)
+  }
+
+  console.log(packageJson.version)
 }
 
 function printError(message: string): void {
@@ -425,6 +438,11 @@ function showSkillStatus(values: string[]): void {
 function main(): void {
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printHelp()
+    return
+  }
+
+  if (command === '--version' || command === '-v') {
+    printVersion()
     return
   }
 

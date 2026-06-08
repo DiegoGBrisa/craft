@@ -5,6 +5,9 @@ import { join } from 'node:path'
 import { expect, test } from 'vitest'
 
 const CLI = new URL('../dist/cli.js', import.meta.url)
+const PACKAGE_JSON = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+  version?: string
+}
 
 type CreateRepositoryOptions = {
   version?: string
@@ -139,6 +142,22 @@ test('rejects unsupported flags', () => {
 
   expect(error.status).toBe(1)
   expect(String(error.stderr)).toMatch(/Unknown option: --unknown/)
+})
+
+test('shows the installed craft version with --version', () => {
+  const directory = createRepository()
+
+  const output = runCraft(['--version'], directory)
+
+  expect(output.trim()).toBe(PACKAGE_JSON.version)
+})
+
+test('shows the installed craft version with -v', () => {
+  const directory = createRepository()
+
+  const output = runCraft(['-v'], directory)
+
+  expect(output.trim()).toBe(PACKAGE_JSON.version)
 })
 
 test('shows the self-upgrade command without running it', () => {

@@ -42,6 +42,13 @@ With npm:
 npm install -g @diegogbrisa/craft
 ```
 
+Check the installed version:
+
+```sh
+craft --version
+craft -v
+```
+
 ## Usage
 
 Install the `ts-match` skill into the current repository:
