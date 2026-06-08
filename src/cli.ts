@@ -6,12 +6,14 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 
+const CRAFT_PACKAGE = '@diegogbrisa/craft'
 const TS_MATCH_PACKAGE = '@diegogbrisa/ts-match'
 const TS_MATCH_SKILL_DIR = join('.agents', 'skills', 'ts-match')
 const TS_MATCH_FILE = 'SKILL.md'
 const TS_MATCH_METADATA_FILE = 'metadata.json'
 
 type SkillCommand = 'install' | 'update'
+type PackageManager = 'npm' | 'pnpm'
 
 type ParsedFlags = {
   flags: Set<string>
@@ -50,6 +52,11 @@ type WriteSkillFilesInput = {
   mode: SkillCommand
 }
 
+type UpgradeOptions = {
+  dryRun: boolean
+  packageManager?: PackageManager
+}
+
 const [, , command, ...args] = process.argv
 
 function printHelp(): void {
@@ -59,12 +66,14 @@ Install version-matched agent skills from packages into repositories.
 
 Usage:
   craft help
+  craft upgrade [--dry-run] [--npm|--pnpm]
   craft ts-match skill install [--force]
   craft ts-match skill update [--force]
   craft ts-match skill status
 
 Commands:
   help                      Show this help text.
+  upgrade                   Update craft to the latest published version.
   ts-match skill install    Install the ts-match agent skill for the installed package version.
   ts-match skill update     Update the ts-match agent skill for the installed package version.
   ts-match skill status     Show the installed ts-match skill version.
@@ -105,6 +114,114 @@ function readJson<T>(filePath: string): T {
 
 function hash(value: string): string {
   return createHash('sha256').update(value).digest('hex')
+}
+
+function commandExists(commandName: string): boolean {
+  try {
+    execFileSync(commandName, ['--version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'ignore', 'ignore'],
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function inferPackageManagerFromUserAgent(): PackageManager | null {
+  const userAgent = process.env.npm_config_user_agent
+
+  if (!userAgent) {
+    return null
+  }
+
+  if (userAgent.startsWith('pnpm/')) {
+    return 'pnpm'
+  }
+
+  if (userAgent.startsWith('npm/')) {
+    return 'npm'
+  }
+
+  return null
+}
+
+function detectPackageManager(preferredPackageManager: PackageManager | undefined): PackageManager {
+  if (preferredPackageManager) {
+    if (!commandExists(preferredPackageManager)) {
+      throw new Error(`${preferredPackageManager} was requested, but it was not found on PATH.`)
+    }
+
+    return preferredPackageManager
+  }
+
+  const userAgentPackageManager = inferPackageManagerFromUserAgent()
+
+  if (userAgentPackageManager && commandExists(userAgentPackageManager)) {
+    return userAgentPackageManager
+  }
+
+  if (commandExists('pnpm')) {
+    return 'pnpm'
+  }
+
+  if (commandExists('npm')) {
+    return 'npm'
+  }
+
+  throw new Error('Could not find pnpm or npm on PATH. Install one of them, then run craft upgrade again.')
+}
+
+function getUpgradeCommand(packageManager: PackageManager): [string, string[]] {
+  if (packageManager === 'pnpm') {
+    return ['pnpm', ['add', '-g', `${CRAFT_PACKAGE}@latest`]]
+  }
+
+  return ['npm', ['install', '-g', `${CRAFT_PACKAGE}@latest`]]
+}
+
+function parseUpgradeOptions(values: string[]): UpgradeOptions {
+  const { flags, positional } = parseFlags(values)
+
+  assertSupportedFlags(flags, new Set(['--dry-run', '--npm', '--pnpm']))
+
+  if (positional.length > 0) {
+    throw new Error(`Unexpected argument: ${positional[0]}`)
+  }
+
+  if (flags.has('--npm') && flags.has('--pnpm')) {
+    throw new Error('Use only one of --npm or --pnpm.')
+  }
+
+  const options: UpgradeOptions = {
+    dryRun: flags.has('--dry-run'),
+  }
+
+  if (flags.has('--npm')) {
+    options.packageManager = 'npm'
+  }
+
+  if (flags.has('--pnpm')) {
+    options.packageManager = 'pnpm'
+  }
+
+  return options
+}
+
+function upgradeCraft(values: string[]): void {
+  const options = parseUpgradeOptions(values)
+  const packageManager = detectPackageManager(options.packageManager)
+  const [commandName, commandArgs] = getUpgradeCommand(packageManager)
+  const commandText = [commandName, ...commandArgs].join(' ')
+
+  if (options.dryRun) {
+    console.log(`Would run:\n${commandText}`)
+    return
+  }
+
+  console.log(`Running:\n${commandText}`)
+  execFileSync(commandName, commandArgs, { stdio: 'inherit' })
+  console.log('craft upgrade complete.')
 }
 
 function getRepositoryRoot(cwd: string): string {
@@ -308,6 +425,11 @@ function showSkillStatus(values: string[]): void {
 function main(): void {
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printHelp()
+    return
+  }
+
+  if (command === 'upgrade') {
+    upgradeCraft(args)
     return
   }
 

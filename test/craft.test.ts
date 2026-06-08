@@ -140,3 +140,38 @@ test('rejects unsupported flags', () => {
   expect(error.status).toBe(1)
   expect(String(error.stderr)).toMatch(/Unknown option: --unknown/)
 })
+
+test('shows the self-upgrade command without running it', () => {
+  const directory = createRepository()
+
+  const output = runCraft(['upgrade', '--dry-run'], directory)
+
+  expect(output).toMatch(/Would run:/)
+  expect(output).toMatch(/@diegogbrisa\/craft@latest/)
+  expect(output).toMatch(/(?:pnpm add -g|npm install -g)/)
+})
+
+test('supports forcing pnpm for self-upgrade', () => {
+  const directory = createRepository()
+
+  const output = runCraft(['upgrade', '--dry-run', '--pnpm'], directory)
+
+  expect(output).toContain('pnpm add -g @diegogbrisa/craft@latest')
+})
+
+test('supports forcing npm for self-upgrade', () => {
+  const directory = createRepository()
+
+  const output = runCraft(['upgrade', '--dry-run', '--npm'], directory)
+
+  expect(output).toContain('npm install -g @diegogbrisa/craft@latest')
+})
+
+test('rejects conflicting self-upgrade package manager flags', () => {
+  const directory = createRepository()
+
+  const error = runCraftError(['upgrade', '--dry-run', '--npm', '--pnpm'], directory)
+
+  expect(error.status).toBe(1)
+  expect(String(error.stderr)).toMatch(/Use only one of --npm or --pnpm/)
+})

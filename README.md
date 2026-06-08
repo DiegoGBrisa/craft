@@ -6,6 +6,27 @@ Install version-matched agent skills from packages into repositories.
 pnpm dlx @diegogbrisa/craft help
 ```
 
+## Upgrade
+
+If craft is installed globally, update it with:
+
+```sh
+craft upgrade
+```
+
+Preview the command without running it:
+
+```sh
+craft upgrade --dry-run
+```
+
+Force a package manager when needed:
+
+```sh
+craft upgrade --pnpm
+craft upgrade --npm
+```
+
 ## ts-match skill
 
 ```sh
